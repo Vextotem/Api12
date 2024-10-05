@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6,8 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RgShows - MovieApi 2</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/devtools-detector/2.0.17/devtools-detector.js"></script>
-    <script src="../../../js/devtoolsdetector.js" preload></script>
-    <script src="../../../js/nocheats.js" preload></script>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <style>
         body {
@@ -31,7 +28,7 @@
             justify-content: center;
             gap: 10px;
         }
-        .button {
+        .button, #change-language-button {
             padding: 10px 20px;
             background-color: #222;
             color: #eee;
@@ -39,10 +36,10 @@
             cursor: pointer;
             transition: background-color 0.3s;
         }
-        .button:hover {
+        .button:hover, #change-language-button:hover {
             background-color: #333;
         }
-        #change-language-button {
+        #language-select {
             margin-top: 10px;
             padding: 5px 10px;
             background-color: #222;
@@ -55,7 +52,9 @@
 </head>
 <body>
     <video id="video" controls></video>
-    <div class="controls" id="language-buttons"></div>
+    <div class="controls">
+        <select id="language-select" aria-label="Select Language"></select>
+    </div>
     <button id="change-language-button">Change Language</button>
     <script>
         function getParameterByName(name, url = window.location.href) {
@@ -72,31 +71,23 @@
                 const response = await fetch(`https://autoembed.cc/embed/player.php?id=${tmdbId}`);
                 const text = await response.text();
 
-                // Create a DOM parser to parse the HTML response
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(text, 'text/html');
 
-                // Extract the script content
                 const scriptElement = Array.from(doc.scripts).find(script => script.innerHTML.includes('Playerjs'));
                 if (!scriptElement) {
                     throw new Error('Playerjs script not found in the HTML response');
                 }
 
                 const scriptContent = scriptElement.innerHTML;
-
-                // Extract the JSON string containing the file array
                 const jsonStartIndex = scriptContent.indexOf('"file":') + 7;
                 const jsonEndIndex = scriptContent.lastIndexOf(']');
                 let fileArrayString = scriptContent.substring(jsonStartIndex, jsonEndIndex + 1);
 
-                // Log the extracted string for debugging
                 console.log('Extracted file array string:', fileArrayString);
-
-                // Remove the trailing comma before the closing bracket
                 fileArrayString = fileArrayString.replace(/},\s*]$/, '}]');
 
                 const files = JSON.parse(fileArrayString.replace(/\\\//g, '/'));
-
                 return files;
             } catch (error) {
                 console.error('Error parsing video URLs:', error);
@@ -121,37 +112,35 @@
             }
         }
 
-        function createLanguageButtons(files) {
-            const buttonsContainer = document.getElementById('language-buttons');
-            buttonsContainer.innerHTML = '';
+        function createLanguageDropdown(files) {
+            const select = document.getElementById('language-select');
+            select.innerHTML = ''; // Clear existing options
             files.forEach(file => {
-                const button = document.createElement('button');
-                button.textContent = file.title;
-                button.classList.add('button');
-                button.addEventListener('click', () => {
-                    initializePlayer(file.file);
-                });
-                buttonsContainer.appendChild(button);
+                const option = document.createElement('option');
+                option.value = file.file;
+                option.textContent = file.title;
+                select.appendChild(option);
+            });
+            select.addEventListener('change', (event) => {
+                initializePlayer(event.target.value);
             });
         }
 
-        function toggleLanguageButtons() {
-            const buttonsContainer = document.getElementById('language-buttons');
-            buttonsContainer.style.display = (buttonsContainer.style.display === 'none' || buttonsContainer.style.display === '') ? 'block' : 'none';
-        }
-
-        document.getElementById('change-language-button').addEventListener('click', toggleLanguageButtons);
+        document.getElementById('change-language-button').addEventListener('click', () => {
+            const select = document.getElementById('language-select');
+            select.style.display = (select.style.display === 'none' || select.style.display === '') ? 'block' : 'none';
+        });
 
         (async () => {
             try {
-                const tmdbId = getParameterByName('id'); // Get the id from the URL params
+                const tmdbId = getParameterByName('id');
                 if (!tmdbId) {
                     throw new Error('TMDB ID not provided in the URL');
                 }
                 const videoFiles = await fetchVideoUrls(tmdbId);
                 if (videoFiles && videoFiles.length > 0) {
                     initializePlayer(videoFiles[0].file);
-                    createLanguageButtons(videoFiles);
+                    createLanguageDropdown(videoFiles);
                 }
             } catch (error) {
                 console.error('Error fetching video data:', error);
